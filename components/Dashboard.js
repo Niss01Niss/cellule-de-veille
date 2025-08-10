@@ -57,6 +57,7 @@ const Dashboard = () => {
   const [selectedAlert, setSelectedAlert] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [currentAlertIndex, setCurrentAlertIndex] = useState(0)
+  const [dateFilter, setDateFilter] = useState('today') // 'today', 'week', 'month', 'year'
   const [stats, setStats] = useState({
     total: 0,
     critical: 0,
@@ -70,6 +71,11 @@ const Dashboard = () => {
     fetchData()
   }, [])
 
+  // Reset la pagination quand le filtre de date change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [dateFilter])
+
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -79,9 +85,15 @@ const Dashboard = () => {
       ])
       const alertsData = await alertsRes.json()
       const iocsData = await iocsRes.json()
+      
+      // Trier les alertes par date de publication décroissante (plus récentes en premier)
+      const sortedAlerts = (alertsData || []).sort((a, b) => 
+        new Date(b.published) - new Date(a.published)
+      )
+      
       setIocs(iocsData || [])
-      setAlerts(alertsData || [])
-      calculateStats(alertsData || [])
+      setAlerts(sortedAlerts)
+      calculateStats(sortedAlerts)
       setLoading(false)
     } catch (error) {
       setAlerts([])
@@ -175,15 +187,52 @@ const Dashboard = () => {
   // Remplace toutes les utilisations de alerts par filteredAlerts
   const filteredAlerts = filterAlertsByIocs(alerts, iocs)
 
-  // Pagination sur filteredAlerts
-  const totalPages = Math.ceil(filteredAlerts.length / itemsPerPage)
+  // Fonction pour filtrer les alertes par date
+  const filterAlertsByDate = (alerts, filter) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    switch (filter) {
+      case 'today':
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= today
+        })
+      case 'week':
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= weekAgo
+        })
+      case 'month':
+        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= monthAgo
+        })
+      case 'year':
+        const yearAgo = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= yearAgo
+        })
+      default:
+        return alerts
+    }
+  }
+
+  // Appliquer le filtre de date aux alertes filtrées par IOCs
+  const dateFilteredAlerts = filterAlertsByDate(filteredAlerts, dateFilter)
+
+  // Pagination sur dateFilteredAlerts
+  const totalPages = Math.ceil(dateFilteredAlerts.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentAlerts = filteredAlerts.slice(startIndex, endIndex)
+  const currentAlerts = dateFilteredAlerts.slice(startIndex, endIndex)
 
   // Section alertes critiques filtrée
   const getCriticalAlerts = () => {
-    return filteredAlerts.filter(alert => alert.cvss >= 9).slice(0, 5)
+    return dateFilteredAlerts.filter(alert => alert.cvss >= 9).slice(0, 5)
   }
 
   // Défilement automatique des alertes critiques
@@ -198,7 +247,7 @@ const Dashboard = () => {
 
       return () => clearInterval(interval)
     }
-  }, [alerts])
+  }, [alerts, dateFilter])
 
   const handleViewDetails = (alert) => {
     setSelectedAlert(alert)
@@ -234,13 +283,10 @@ const Dashboard = () => {
   return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header avec animation */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-2xl shadow-2xl animate-pulse">
-            <Shield className="h-8 w-8 animate-bounce" />
-            <h1 className="text-3xl font-bold">Dashboard Cyber Alerts</h1>
-          </div>
-          <p className="text-gray-600 mt-4 text-lg">Surveillance et analyse des alertes de sécurité en temps réel</p>
+        {/* Titre de la page */}
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Vue d'ensemble des alertes</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Surveillance et analyse en temps réel</p>
         </div>
 
         {/* Stats Cards avec animations */}
@@ -488,11 +534,33 @@ const Dashboard = () => {
 
         {/* Tableau avec pagination moderne */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-              <div className="w-2 h-8 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></div>
-              Alertes Récentes
-            </h3>
+          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-dark-700 dark:to-dark-600 dark:border-dark-700">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <div className="w-2 h-8 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></div>
+                Alertes Récentes
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                  (Triées par date de publication)
+                </span>
+              </h3>
+              
+              {/* Sélecteur de période */}
+              <div className="flex items-center space-x-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Période :
+                </label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="today">Aujourd'hui</option>
+                  <option value="week">7 derniers jours</option>
+                  <option value="month">30 derniers jours</option>
+                  <option value="year">12 derniers mois</option>
+                </select>
+              </div>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -538,8 +606,14 @@ const Dashboard = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {getCvssCategory(alert.cvss)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(alert.published).toLocaleDateString('fr-FR')}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(alert.published).toLocaleDateString('fr-FR', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
@@ -570,8 +644,8 @@ const Dashboard = () => {
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Affichage de {startIndex + 1} à {Math.min(endIndex, filteredAlerts.length)} sur {filteredAlerts.length} résultats
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  Affichage de {startIndex + 1} à {Math.min(endIndex, dateFilteredAlerts.length)} sur {dateFilteredAlerts.length} résultats
                 </div>
                 <div className="flex items-center space-x-2">
                   <button

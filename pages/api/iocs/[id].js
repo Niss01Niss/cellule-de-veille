@@ -3,12 +3,20 @@ import { supabase } from '../../../lib/supabase'
 export default async function handler(req, res) {
   const { id } = req.query
 
+  // Vérifier l'authentification
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Non autorisé' })
+  }
+
   if (req.method === 'DELETE') {
     try {
       const { error } = await supabase
         .from('iocs')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id) // S'assurer que l'utilisateur ne peut supprimer que ses propres IOCs
 
       if (error) {
         throw error
@@ -26,8 +34,15 @@ export default async function handler(req, res) {
         .from('iocs')
         .update({ ip, server, os, security_solutions })
         .eq('id', id)
+        .eq('user_id', user.id) // S'assurer que l'utilisateur ne peut modifier que ses propres IOCs
         .select()
+      
       if (error) throw error
+      
+      if (data.length === 0) {
+        return res.status(404).json({ error: 'IOC non trouvé ou non autorisé' })
+      }
+      
       res.status(200).json(data[0])
     } catch (error) {
       res.status(500).json({ error: error.message })

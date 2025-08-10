@@ -1,6 +1,13 @@
--- Données de test pour la table cyber_alerts
--- Ces données contiennent des vulnérabilités récentes de 2025 qui peuvent correspondre aux IOCs
+-- Script pour nettoyer et recharger les données avec des dates récentes de 2025
+-- Exécutez ce script dans l'éditeur SQL de Supabase
 
+-- 1. Nettoyer les données existantes
+DELETE FROM cyber_alerts;
+
+-- 2. Réinitialiser la séquence d'ID (si nécessaire)
+-- ALTER SEQUENCE cyber_alerts_id_seq RESTART WITH 1;
+
+-- 3. Insérer les nouvelles données récentes de 2025
 INSERT INTO cyber_alerts (summary, cvss, published, description) VALUES
 -- Vulnérabilités très récentes (derniers jours)
 ('Vulnérabilité critique dans le serveur 192.168.1.1', 9.8, '2025-01-15 14:30:00', 'Une vulnérabilité critique a été découverte dans le serveur avec l''adresse IP 192.168.1.1. Cette vulnérabilité permet l''exécution de code à distance.'),
@@ -35,5 +42,13 @@ INSERT INTO cyber_alerts (summary, cvss, published, description) VALUES
 ('Vulnérabilité dans le cloud AWS', 8.9, '2025-01-15 18:45:00', 'Une vulnérabilité critique a été découverte dans les services AWS. Mise à jour de sécurité requise immédiatement.'),
 ('Problème de sécurité dans Docker', 7.6, '2025-01-15 12:15:00', 'Une vulnérabilité dans Docker pourrait permettre l''échappement de conteneurs. Mise à jour recommandée.');
 
--- Note: Ces données sont des exemples récents de 2025 pour tester le dashboard
--- Elles contiennent des mots-clés qui correspondent aux IOCs que les utilisateurs pourraient saisir 
+-- 4. Vérifier les données insérées
+SELECT 
+    id,
+    summary,
+    cvss,
+    published,
+    DATE(published) as date_only
+FROM cyber_alerts 
+ORDER BY published DESC 
+LIMIT 10; 

@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts'
-import { Shield, AlertTriangle, TrendingUp, Database, Target, CheckCircle, XCircle, Eye, X } from 'lucide-react'
+import { Shield, AlertTriangle, TrendingUp, Database, Target, CheckCircle, XCircle, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const PersonalizedDashboard = () => {
   const [iocs, setIocs] = useState([])
@@ -12,6 +12,8 @@ const PersonalizedDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [selectedAlert, setSelectedAlert] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [dateFilter, setDateFilter] = useState('today') // 'today', 'week', 'month', 'year'
   const [stats, setStats] = useState({
     totalIOCs: 0,
     totalAlerts: 0,
@@ -19,12 +21,21 @@ const PersonalizedDashboard = () => {
     critical: 0,
     high: 0,
     medium: 0,
-    low: 0
+    low: 0,
+    criticalHigh: 0,
+    relevanceRate: 0
   })
+  
+  const itemsPerPage = 5
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Reset la pagination quand le filtre de date change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [dateFilter])
 
   const fetchData = async () => {
     try {
@@ -38,12 +49,17 @@ const PersonalizedDashboard = () => {
       const iocsData = await iocsResponse.json()
       const alertsData = await alertsResponse.json()
 
-      setIocs(iocsData || [])
-      setAlerts(alertsData || [])
+      // Trier les alertes par date de publication décroissante (plus récentes en premier)
+      const sortedAlerts = (alertsData || []).sort((a, b) => 
+        new Date(b.published) - new Date(a.published)
+      )
 
-      const relevant = analyzeRelevantAlerts(iocsData || [], alertsData || [])
+      setIocs(iocsData || [])
+      setAlerts(sortedAlerts)
+
+      const relevant = analyzeRelevantAlerts(iocsData || [], sortedAlerts)
       setPersonalizedAlerts(relevant)
-      calculateStats(iocsData || [], alertsData || [], relevant)
+      calculateStats(iocsData || [], sortedAlerts, relevant)
       
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error)
@@ -59,18 +75,25 @@ const PersonalizedDashboard = () => {
     const keywords = extractKeywords(iocsData)
 
     alertsData.forEach(alert => {
-      const relevanceScore = calculateRelevanceScore(alert, keywords, iocsData)
+      const { score, matchedKeywords } = calculateRelevanceScore(alert, keywords, iocsData)
       
-      if (relevanceScore >= 4) { // Seuil plus strict : au moins une correspondance réelle
+      // Seuil strict : au moins une correspondance réelle avec un score minimum
+      if (score >= 8 && matchedKeywords.length > 0) {
         relevantAlerts.push({
           ...alert,
-          relevanceScore,
-          matchedKeywords: findMatchedKeywords(alert, keywords)
+          relevanceScore: score,
+          matchedKeywords: matchedKeywords
         })
       }
     })
 
-    return relevantAlerts.sort((a, b) => b.relevanceScore - a.relevanceScore)
+    // Trier d'abord par score de pertinence, puis par date de publication (plus récentes en premier)
+    return relevantAlerts.sort((a, b) => {
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore
+      }
+      return new Date(b.published) - new Date(a.published)
+    })
   }
 
   const extractKeywords = (iocsData) => {
@@ -99,55 +122,70 @@ const PersonalizedDashboard = () => {
 
   const calculateRelevanceScore = (alert, keywords, iocsData) => {
     let score = 0
+    const matchedKeywords = []
     const alertText = `${alert.summary} ${alert.description || ''}`.toLowerCase()
 
+    // Correspondance IP (score élevé car très spécifique)
     keywords.ips.forEach(ip => {
-      if (alertText.includes(ip)) score += 10
+      if (alertText.includes(ip.toLowerCase())) {
+        score += 15
+        matchedKeywords.push({ category: 'IP', word: ip })
+      }
     })
 
+    // Correspondance Serveur (score élevé)
     keywords.servers.forEach(server => {
-      if (alertText.includes(server)) score += 8
+      if (alertText.includes(server.toLowerCase())) {
+        score += 12
+        matchedKeywords.push({ category: 'Server', word: server })
+      }
     })
 
+    // Correspondance OS (score moyen)
     keywords.os.forEach(os => {
-      if (alertText.includes(os)) score += 6
+      if (os.length > 2 && alertText.includes(os.toLowerCase())) {
+        score += 8
+        matchedKeywords.push({ category: 'OS', word: os })
+      }
     })
 
+    // Correspondance Solutions de sécurité (score moyen)
     keywords.security.forEach(security => {
-      if (alertText.includes(security)) score += 4
+      if (security.length > 2 && alertText.includes(security.toLowerCase())) {
+        score += 6
+        matchedKeywords.push({ category: 'Security', word: security })
+      }
     })
 
+    // Bonus pour la sévérité CVSS
     if (alert.cvss >= 9) score += 5
     else if (alert.cvss >= 7) score += 3
     else if (alert.cvss >= 4) score += 1
 
-    return score
+    return { score, matchedKeywords }
   }
 
-  const findMatchedKeywords = (alert, keywords) => {
-    const matched = []
-    const alertText = `${alert.summary} ${alert.description || ''}`.toLowerCase()
 
-    Object.entries(keywords).forEach(([category, words]) => {
-      words.forEach(word => {
-        if (alertText.includes(word)) {
-          matched.push({ category, word })
-        }
-      })
-    })
-
-    return matched
-  }
 
   const calculateStats = (iocsData, alertsData, relevantAlerts) => {
+    const critical = relevantAlerts.filter(alert => alert.cvss >= 9).length
+    const high = relevantAlerts.filter(alert => alert.cvss >= 7 && alert.cvss < 9).length
+    const medium = relevantAlerts.filter(alert => alert.cvss >= 4 && alert.cvss < 7).length
+    const low = relevantAlerts.filter(alert => alert.cvss < 4).length
+    
+    // Calculer le taux de pertinence (pourcentage d'alertes pertinentes par rapport au total)
+    const relevanceRate = alertsData.length > 0 ? Math.round((relevantAlerts.length / alertsData.length) * 100) : 0
+    
     const stats = {
       totalIOCs: iocsData.length,
       totalAlerts: alertsData.length,
       relevantAlerts: relevantAlerts.length,
-      critical: relevantAlerts.filter(alert => alert.cvss >= 9).length,
-      high: relevantAlerts.filter(alert => alert.cvss >= 7 && alert.cvss < 9).length,
-      medium: relevantAlerts.filter(alert => alert.cvss >= 4 && alert.cvss < 7).length,
-      low: relevantAlerts.filter(alert => alert.cvss < 4).length
+      critical: critical,
+      high: high,
+      medium: medium,
+      low: low,
+      criticalHigh: critical + high, // Critiques + Élevées combinées
+      relevanceRate: relevanceRate
     }
     setStats(stats)
   }
@@ -182,6 +220,49 @@ const PersonalizedDashboard = () => {
     setShowDetailModal(false)
     setSelectedAlert(null)
   }
+
+  // Fonction pour filtrer les alertes par date
+  const filterAlertsByDate = (alerts, filter) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    switch (filter) {
+      case 'today':
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= today
+        })
+      case 'week':
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= weekAgo
+        })
+      case 'month':
+        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= monthAgo
+        })
+      case 'year':
+        const yearAgo = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000)
+        return alerts.filter(alert => {
+          const alertDate = new Date(alert.published)
+          return alertDate >= yearAgo
+        })
+      default:
+        return alerts
+    }
+  }
+
+  // Appliquer le filtre de date aux alertes personnalisées
+  const dateFilteredPersonalizedAlerts = filterAlertsByDate(personalizedAlerts, dateFilter)
+
+  // Pagination
+  const totalPages = Math.ceil(dateFilteredPersonalizedAlerts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentAlerts = dateFilteredPersonalizedAlerts.slice(startIndex, endIndex)
 
   const relevanceData = [
     ...(stats.critical > 0 ? [{ name: 'Critique', value: stats.critical, color: '#dc2626' }] : []),
@@ -236,8 +317,8 @@ const PersonalizedDashboard = () => {
                 </div>
                 
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Date de publication:</span>
-                  <p className="text-sm text-gray-900 mt-1">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Date de publication:</span>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                     {new Date(selectedAlert.published).toLocaleDateString('fr-FR', { 
                       year: 'numeric', 
                       month: 'long', 
@@ -249,24 +330,24 @@ const PersonalizedDashboard = () => {
                 </div>
                 
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Résumé:</span>
-                  <p className="text-sm text-gray-900 mt-1">{selectedAlert.summary}</p>
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Résumé:</span>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedAlert.summary}</p>
                 </div>
                 
                 {selectedAlert.description && (
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Description:</span>
-                    <p className="text-sm text-gray-900 mt-1">{selectedAlert.description}</p>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Description:</span>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedAlert.description}</p>
                   </div>
                 )}
                 
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Correspondances trouvées:</span>
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Correspondances trouvées:</span>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {selectedAlert.matchedKeywords.map((match, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
+                        className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full"
                       >
                         {match.word} ({match.category})
                       </span>
@@ -275,7 +356,7 @@ const PersonalizedDashboard = () => {
                 </div>
                 
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Score de pertinence:</span>
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Score de pertinence:</span>
                   <span className={`ml-2 px-3 py-1 text-sm font-semibold rounded-full text-white`} style={{ backgroundColor: getRelevanceColor(selectedAlert.relevanceScore) }}>
                     {selectedAlert.relevanceScore}
                   </span>
@@ -283,10 +364,10 @@ const PersonalizedDashboard = () => {
               </div>
             </div>
             
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-dark-700">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-dark-700 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors"
               >
                 Fermer
               </button>
@@ -339,7 +420,7 @@ const PersonalizedDashboard = () => {
               <TrendingUp className="h-10 w-10 text-white" />
               <div className="ml-4">
                 <p className="text-red-100 text-sm font-medium">Critiques/Élevées</p>
-                <p className="text-3xl font-bold text-white">{stats.critical + stats.high}</p>
+                <p className="text-3xl font-bold text-white">{stats.criticalHigh}</p>
               </div>
             </div>
           </div>
@@ -349,9 +430,7 @@ const PersonalizedDashboard = () => {
               <Shield className="h-10 w-10 text-white" />
               <div className="ml-4">
                 <p className="text-green-100 text-sm font-medium">Taux de Pertinence</p>
-                <p className="text-3xl font-bold text-white">
-                  {stats.totalAlerts > 0 ? Math.round((stats.relevantAlerts / stats.totalAlerts) * 100) : 0}%
-                </p>
+                <p className="text-3xl font-bold text-white">{stats.relevanceRate}%</p>
               </div>
             </div>
           </div>
@@ -424,11 +503,33 @@ const PersonalizedDashboard = () => {
 
         {/* Tableau avec styles modernes */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-              <div className="w-2 h-8 bg-gradient-to-b from-pink-500 to-rose-500 rounded-full mr-3"></div>
-              Vulnérabilités Pertinentes ({personalizedAlerts.length})
-            </h3>
+          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-dark-700 dark:to-dark-600 dark:border-dark-700">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <div className="w-2 h-8 bg-gradient-to-b from-pink-500 to-rose-500 rounded-full mr-3"></div>
+                Vulnérabilités Pertinentes ({dateFilteredPersonalizedAlerts.length})
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                  (Triées par pertinence puis date)
+                </span>
+              </h3>
+              
+              {/* Sélecteur de période */}
+              <div className="flex items-center space-x-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Période :
+                </label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="today">Aujourd'hui</option>
+                  <option value="week">7 derniers jours</option>
+                  <option value="month">30 derniers jours</option>
+                  <option value="year">12 derniers mois</option>
+                </select>
+              </div>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -458,10 +559,10 @@ const PersonalizedDashboard = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {personalizedAlerts.length > 0 ? (
-                  personalizedAlerts.map((alert) => (
-                    <tr key={alert.id} className="hover:bg-gray-50">
+              <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
+                {currentAlerts.length > 0 ? (
+                  currentAlerts.map((alert) => (
+                    <tr key={alert.id} className="hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors duration-200">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className="px-2 py-1 text-xs font-semibold rounded-full text-white"
@@ -470,7 +571,7 @@ const PersonalizedDashboard = () => {
                           {alert.relevanceScore}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate">
                         {alert.summary}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -481,10 +582,10 @@ const PersonalizedDashboard = () => {
                           {alert.cvss}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                         {getCvssCategory(alert.cvss)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                         <div className="flex flex-wrap gap-1">
                           {alert.matchedKeywords.slice(0, 3).map((match, index) => (
                             <span
@@ -501,8 +602,14 @@ const PersonalizedDashboard = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(alert.published).toLocaleDateString('fr-FR')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(alert.published).toLocaleDateString('fr-FR', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -541,21 +648,63 @@ const PersonalizedDashboard = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Affichage {startIndex + 1}-{Math.min(endIndex, dateFilteredPersonalizedAlerts.length)} sur {dateFilteredPersonalizedAlerts.length} résultats
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-700'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Modal de détails */}
       {showDetailModal && selectedAlert && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-700">
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: getCvssColor(selectedAlert.cvss) }}></div>
-                <h2 className="text-xl font-bold text-gray-900">Détails de la Vulnérabilité</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Détails de la Vulnérabilité</h2>
               </div>
               <button
                 onClick={handleCloseModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>

@@ -1,11 +1,19 @@
 import { supabase } from '../../lib/supabase'
 
 export default async function handler(req, res) {
+  // Vérifier l'authentification
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Non autorisé' })
+  }
+
   if (req.method === 'GET') {
     try {
       const { data, error } = await supabase
         .from('iocs')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -24,6 +32,7 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from('iocs')
         .insert([{ 
+          user_id: user.id,
           ip: ip || null, 
           server: server || null, 
           os: os || null, 

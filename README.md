@@ -36,10 +36,10 @@
 3. **Créer les tables** :
    - Exécuter `database/schema.sql` et `database/sample-data.sql` dans Supabase
 4. **Lancer le projet** :
-   ```bash
+```bash
    npm install
-   npm run dev
-   ```
+npm run dev
+```
 
 ## API
 

@@ -19,17 +19,17 @@ const IOCHelpModal = ({ isOpen, onClose, onShowHelp }) => {
       icon: Info,
       content: (
         <div className="space-y-4">
-          <p className="text-gray-700 leading-relaxed">
+          <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
             Cette page vous permet de configurer vos <strong>Indicateurs de Compromission (IOCs)</strong> 
             pour personnaliser votre dashboard de sécurité.
           </p>
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-4 rounded-r-lg">
             <div className="flex">
               <div className="flex-shrink-0">
                 <Info className="h-5 w-5 text-blue-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm text-blue-700">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
                   <strong>Conseil :</strong> Plus vos IOCs sont précis, plus le dashboard personnalisé sera pertinent.
                 </p>
               </div>
@@ -237,25 +237,25 @@ const IOCHelpModal = ({ isOpen, onClose, onShowHelp }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-dark-700 dark:to-dark-600">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Icon className="h-6 w-6 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{currentStepData.title}</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{currentStepData.title}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Étape {currentStep + 1} sur {steps.length}
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -265,13 +265,13 @@ const IOCHelpModal = ({ isOpen, onClose, onShowHelp }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-dark-700 bg-gray-50 dark:bg-dark-700">
           <div className="flex space-x-2">
             {steps.map((_, index) => (
               <div
                 key={index}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentStep ? 'bg-blue-500' : 'bg-gray-300'
+                  index === currentStep ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
                 }`}
               />
             ))}
@@ -281,7 +281,7 @@ const IOCHelpModal = ({ isOpen, onClose, onShowHelp }) => {
             {currentStep > 0 && (
               <button
                 onClick={handlePrevious}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
               >
                 Précédent
               </button>

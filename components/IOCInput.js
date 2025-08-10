@@ -258,8 +258,8 @@ const IOCInput = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestion des IOCs</h1>
-            <p className="text-gray-600">Saisissez et gérez vos indicateurs de compromission</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Gestion des IOCs</h1>
+            <p className="text-gray-600 dark:text-gray-300">Saisissez et gérez vos indicateurs de compromission</p>
           </div>
           <button
             onClick={() => setShowHelpModal(true)}
@@ -272,13 +272,13 @@ const IOCInput = () => {
       </div>
 
       {/* Formulaire */}
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ajouter un nouvel IOC</h2>
+      <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Ajouter un nouvel IOC</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="ip" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="ip" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Adresse IP
               </label>
               <input
@@ -288,7 +288,7 @@ const IOCInput = () => {
                 value={formData.ip}
                 onChange={handleInputChange}
                 placeholder="192.168.1.1 (Web Server - Apache 2.4.41)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
 
