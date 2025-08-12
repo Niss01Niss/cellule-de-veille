@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         .from('client_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       if (error && error.code !== 'PGRST116') {
         console.error('Erreur lors de la récupération du profil:', error)
@@ -109,13 +109,14 @@ export const AuthProvider = ({ children }) => {
 
       // Vérifier l'état d'activation du client
       if (data?.user) {
+        const isAdmin = data.user?.app_metadata?.role === 'admin'
         const { data: profile, error: profileError } = await supabase
           .from('client_profiles')
           .select('is_active')
           .eq('user_id', data.user.id)
-          .single()
+          .maybeSingle()
 
-        if (!profile || profileError || profile.is_active !== true) {
+        if (!isAdmin && (!profile || profileError || profile.is_active !== true)) {
           // Déconnecter immédiatement si inactif
           await supabase.auth.signOut()
           return { data: null, error: new Error("Compte en attente d'activation par l'administrateur.") }

@@ -19,6 +19,7 @@ const PersonalizedDashboard = () => {
     totalIOCs: 0,
     totalAlerts: 0,
     relevantAlerts: 0,
+    industryRelevant: 0,
     critical: 0,
     high: 0,
     medium: 0,
@@ -28,6 +29,7 @@ const PersonalizedDashboard = () => {
   })
   
   const itemsPerPage = 5
+  const [userIndustry, setUserIndustry] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -50,14 +52,43 @@ const PersonalizedDashboard = () => {
     return headers
   }
 
+  // Récupérer l'industrie de l'utilisateur depuis son profil
+  const fetchUserIndustry = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: profile, error } = await supabase
+          .from('client_profiles')
+          .select('industry')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        
+        if (!error && profile) {
+          setUserIndustry(profile.industry)
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'industrie:', error)
+    }
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
+      
+      // Récupérer d'abord l'industrie de l'utilisateur
+      await fetchUserIndustry()
+      
       const authHeaders = await getAuthHeaders()
+      
+      // Construire l'URL avec le paramètre d'industrie
+      const alertsUrl = userIndustry 
+        ? `/api/cyber-alerts?industry=${encodeURIComponent(userIndustry)}`
+        : '/api/cyber-alerts'
       
       const [iocsResponse, alertsResponse] = await Promise.all([
         fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' }),
-        fetch('/api/cyber-alerts')
+        fetch(alertsUrl)
       ])
 
       const iocsData = await iocsResponse.json()
@@ -82,6 +113,13 @@ const PersonalizedDashboard = () => {
     }
   }
 
+  // Mettre à jour les données quand l'industrie change
+  useEffect(() => {
+    if (userIndustry !== null) {
+      fetchData()
+    }
+  }, [userIndustry])
+
   const analyzeRelevantAlerts = (iocsData, alertsData) => {
     if (!iocsData.length || !alertsData.length) return []
 
@@ -91,12 +129,37 @@ const PersonalizedDashboard = () => {
     alertsData.forEach(alert => {
       const { score, matchedKeywords } = calculateRelevanceScore(alert, keywords, iocsData)
       
+      // Bonus pour la correspondance d'industrie
+      let industryBonus = 0
+      if (userIndustry && alert.description && alert.summary) {
+        const industryLower = userIndustry.toLowerCase()
+        const alertText = `${alert.description} ${alert.summary}`.toLowerCase()
+        
+        // Vérifier si l'alerte contient des mots-clés liés à l'industrie
+        if (alertText.includes(industryLower) || 
+            alertText.includes('healthcare') || 
+            alertText.includes('finance') || 
+            alertText.includes('technology') ||
+            alertText.includes('retail') ||
+            alertText.includes('manufacturing') ||
+            alertText.includes('government') ||
+            alertText.includes('education') ||
+            alertText.includes('energy') ||
+            alertText.includes('transportation') ||
+            alertText.includes('telecommunications')) {
+          industryBonus = 3 // Bonus de 3 points pour la pertinence d'industrie
+        }
+      }
+      
+      const finalScore = score + industryBonus
+      
       // Seuil strict : au moins une correspondance réelle avec un score minimum
-      if (score >= 8 && matchedKeywords.length > 0) {
+      if (finalScore >= 8 && matchedKeywords.length > 0) {
         relevantAlerts.push({
           ...alert,
-          relevanceScore: score,
-          matchedKeywords: matchedKeywords
+          relevanceScore: finalScore,
+          matchedKeywords: matchedKeywords,
+          industryRelevant: industryBonus > 0
         })
       }
     })
@@ -194,6 +257,7 @@ const PersonalizedDashboard = () => {
       totalIOCs: iocsData.length,
       totalAlerts: alertsData.length,
       relevantAlerts: relevantAlerts.length,
+      industryRelevant: relevantAlerts.filter(alert => alert.industryRelevant).length,
       critical: critical,
       high: high,
       medium: medium,
@@ -408,43 +472,51 @@ const PersonalizedDashboard = () => {
         </div>
 
         {/* Stats Cards avec animations */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 transform hover:scale-105 transition-all duration-300">
-            <div className="flex items-center">
-              <Database className="h-10 w-10 text-white" />
-              <div className="ml-4">
-                <p className="text-blue-100 text-sm font-medium">IOCs Configurés</p>
-                <p className="text-3xl font-bold text-white">{stats.totalIOCs}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white dark:bg-dark-800 p-6 rounded-2xl border border-gray-100 dark:border-dark-700 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">IOCs Configurés</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.totalIOCs}</p>
+              </div>
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-xl">
+                <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-xl p-6 transform hover:scale-105 transition-all duration-300">
-            <div className="flex items-center">
-              <AlertTriangle className="h-10 w-10 text-white" />
-              <div className="ml-4">
-                <p className="text-orange-100 text-sm font-medium">Vulnérabilités Pertinentes</p>
-                <p className="text-3xl font-bold text-white">{stats.relevantAlerts}</p>
+          <div className="bg-white dark:bg-dark-800 p-6 rounded-2xl border border-gray-100 dark:border-dark-700 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Vulnérabilités Pertinentes</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.relevantAlerts}</p>
+              </div>
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-xl">
+                <Target className="h-6 w-6 text-orange-600 dark:text-orange-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl p-6 transform hover:scale-105 transition-all duration-300">
-            <div className="flex items-center">
-              <TrendingUp className="h-10 w-10 text-white" />
-              <div className="ml-4">
-                <p className="text-red-100 text-sm font-medium">Critiques/Élevées</p>
-                <p className="text-3xl font-bold text-white">{stats.criticalHigh}</p>
+          <div className="bg-white dark:bg-dark-800 p-6 rounded-2xl border border-gray-100 dark:border-dark-700 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pertinentes à l'Industrie</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.industryRelevant}</p>
+              </div>
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-xl">
+                <Shield className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-xl p-6 transform hover:scale-105 transition-all duration-300">
-            <div className="flex items-center">
-              <Shield className="h-10 w-10 text-white" />
-              <div className="ml-4">
-                <p className="text-green-100 text-sm font-medium">Taux de Pertinence</p>
-                <p className="text-3xl font-bold text-white">{stats.relevanceRate}%</p>
+          <div className="bg-white dark:bg-dark-800 p-6 rounded-2xl border border-gray-100 dark:border-dark-700 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Critiques/Élevées</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.criticalHigh}</p>
+              </div>
+              <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-xl">
+                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
@@ -612,6 +684,11 @@ const PersonalizedDashboard = () => {
                           {alert.matchedKeywords.length > 3 && (
                             <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
                               +{alert.matchedKeywords.length - 3}
+                            </span>
+                          )}
+                          {alert.industryRelevant && (
+                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded flex items-center gap-1">
+                              🏭 Industrie
                             </span>
                           )}
                         </div>

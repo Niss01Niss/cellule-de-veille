@@ -58,7 +58,7 @@ const Layout = ({ children }) => {
                       {clientProfile?.contact_name || user.email}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {clientProfile?.company_name || 'Client'}
+                      {user?.app_metadata?.role === 'admin' ? 'Admin' : (clientProfile?.company_name || 'Client')}
                     </p>
                   </div>
                 </button>
@@ -71,7 +71,7 @@ const Layout = ({ children }) => {
                         {clientProfile?.contact_name || user.email}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {clientProfile?.company_name || 'Client'}
+                        {user?.app_metadata?.role === 'admin' ? 'Admin' : (clientProfile?.company_name || 'Client')}
                       </p>
                     </div>
                     

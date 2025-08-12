@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import { Shield, BarChart3, Search, X, Target, Menu, Home, Settings, HelpCircle, Sun, Moon } from 'lucide-react'
+import { Shield, BarChart3, Search, X, Target, Menu, Home, Settings, HelpCircle, Sun, Moon, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../contexts/AuthContext'
 
 const SidebarContent = ({ onClose, isMobile = false }) => {
   const router = useRouter()
   const { isDark, toggleTheme } = useTheme()
-  const menuItems = [
+  const { user } = useAuth()
+
+  const isAdmin = user?.app_metadata?.role === 'admin'
+
+  const clientMenuItems = [
     {
       name: 'Dashboard',
       icon: BarChart3,
@@ -30,6 +35,25 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
       description: 'Gestion des indicateurs'
     }
   ]
+
+  const adminMenuItems = [
+    {
+      name: 'Admin Dashboard',
+      icon: Home,
+      href: { pathname: '/admin-dashboard', query: { view: 'overview' } },
+      active: router.pathname === '/admin-dashboard' && (!router.query.view || router.query.view === 'overview'),
+      description: 'Vue administrateur'
+    },
+    {
+      name: 'Gestion Clients',
+      icon: Users,
+      href: { pathname: '/admin-dashboard', query: { view: 'clients' } },
+      active: router.pathname === '/admin-dashboard' && router.query.view === 'clients',
+      description: 'Activation, profils'
+    }
+  ]
+
+  const menuItems = isAdmin ? adminMenuItems : clientMenuItems
 
   return (
     <>

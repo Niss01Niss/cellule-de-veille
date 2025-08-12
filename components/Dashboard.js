@@ -67,6 +67,7 @@ const Dashboard = () => {
     low: 0
   })
   const itemsPerPage = 10
+  const [userIndustry, setUserIndustry] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -89,32 +90,84 @@ const Dashboard = () => {
     return headers
   }
 
+  // Récupérer l'industrie de l'utilisateur depuis son profil
+  const fetchUserIndustry = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: profile, error } = await supabase
+          .from('client_profiles')
+          .select('industry')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        
+        if (!error && profile) {
+          setUserIndustry(profile.industry)
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'industrie:', error)
+    }
+  }
+
   const fetchData = async () => {
+    const timeoutMs = 10000
+    const abortController = new AbortController()
+    const timeout = setTimeout(() => abortController.abort(), timeoutMs)
     try {
       setLoading(true)
-      const authHeaders = await getAuthHeaders()
-      const [alertsRes, iocsRes] = await Promise.all([
-        fetch('/api/cyber-alerts'),
-        fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' })
-      ])
-      const alertsData = await alertsRes.json()
-      const iocsData = await iocsRes.json()
       
-      // Trier les alertes par date de publication décroissante (plus récentes en premier)
-      const sortedAlerts = (alertsData || []).sort((a, b) => 
+      // Récupérer d'abord l'industrie de l'utilisateur
+      await fetchUserIndustry()
+      
+      const authHeaders = await getAuthHeaders()
+
+      // Construire l'URL avec le paramètre d'industrie
+      const alertsUrl = userIndustry 
+        ? `/api/cyber-alerts?industry=${encodeURIComponent(userIndustry)}`
+        : '/api/cyber-alerts'
+
+      const alertsReq = fetch(alertsUrl, { signal: abortController.signal })
+      const iocsReq = fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin', signal: abortController.signal })
+
+      const [alertsRes, iocsRes] = await Promise.allSettled([alertsReq, iocsReq])
+
+      const alertsData = alertsRes.status === 'fulfilled'
+        ? await alertsRes.value.json().catch(() => [])
+        : []
+
+      let iocsData = []
+      if (iocsRes.status === 'fulfilled') {
+        if (iocsRes.value.ok) {
+          iocsData = await iocsRes.value.json().catch(() => [])
+        } else {
+          // 401/500 → pas bloquant pour le dashboard
+          iocsData = []
+        }
+      }
+
+      const sortedAlerts = (Array.isArray(alertsData) ? alertsData : []).sort((a, b) =>
         new Date(b.published) - new Date(a.published)
       )
-      
-      setIocs(iocsData || [])
+
+      setIocs(Array.isArray(iocsData) ? iocsData : [])
       setAlerts(sortedAlerts)
       calculateStats(sortedAlerts)
-      setLoading(false)
     } catch (error) {
       setAlerts([])
       setIocs([])
+    } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }
+
+  // Mettre à jour les données quand l'industrie change
+  useEffect(() => {
+    if (userIndustry !== null) {
+      fetchData()
+    }
+  }, [userIndustry])
 
   const calculateStats = (data) => {
     if (!Array.isArray(data)) {

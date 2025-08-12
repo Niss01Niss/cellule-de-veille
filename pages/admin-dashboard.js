@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 export default function AdminDashboard() {
   const [clients, setClients] = useState([])
@@ -12,16 +13,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!user) {
       router.push('/login')
+    } else if (user?.app_metadata?.role !== 'admin') {
+      router.push('/')
     } else {
       fetchClients()
     }
   }, [user])
 
   const adminHeaders = async () => {
-    return {
-      'Content-Type': 'application/json',
-      'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_API_SECRET || ''
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`
     }
+    return headers
   }
 
   const fetchClients = async () => {
@@ -58,34 +63,42 @@ export default function AdminDashboard() {
     }
   }
 
+  const view = router.query.view || 'overview'
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+        <h1 className="text-3xl font-extrabold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          Admin Dashboard
+        </h1>
         {loading ? (
-          <p>Chargement...</p>
-        ) : (
-          <table className="table-auto w-full bg-white shadow-md rounded-lg">
-            <thead>
+          <div className="p-6 bg-white rounded-xl border border-gray-200">Chargement...</div>
+        ) : view === 'clients' ? (
+          <table className="min-w-full bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2">Entreprise</th>
-                <th className="px-4 py-2">Contact</th>
-                <th className="px-4 py-2">Secteur</th>
-                <th className="px-4 py-2">Active</th>
-                <th className="px-4 py-2">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Entreprise</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Secteur</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Active</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {clients.map((client) => (
-                <tr key={client.id}>
-                  <td className="border px-4 py-2">{client.company_name}</td>
-                  <td className="border px-4 py-2">{client.contact_name}</td>
-                  <td className="border px-4 py-2">{client.industry || '-'}</td>
-                  <td className="border px-4 py-2">{client.is_active ? 'Oui' : 'Non'}</td>
-                  <td className="border px-4 py-2">
+                <tr key={client.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 text-gray-900 font-medium">{client.company_name}</td>
+                  <td className="px-6 py-3 text-gray-700">{client.contact_name}</td>
+                  <td className="px-6 py-3 text-gray-700">{client.industry || '-'}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full text-white ${client.is_active ? 'bg-green-500' : 'bg-gray-400'}`}>
+                      {client.is_active ? 'Oui' : 'Non'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">
                     <button
                       disabled={pending}
-                      className="bg-blue-500 disabled:opacity-50 text-white px-4 py-2 rounded"
+                      className="px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       onClick={() => toggleActive(client.user_id, client.is_active)}
                     >
                       {client.is_active ? 'Désactiver' : 'Activer'}
@@ -95,6 +108,10 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
+        ) : (
+          <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <p className="text-gray-600">Bienvenue sur l’interface admin. Utilisez le menu “Gestion Clients” pour activer/désactiver des comptes.</p>
+          </div>
         )}
       </div>
     </div>

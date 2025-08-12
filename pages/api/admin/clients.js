@@ -6,19 +6,39 @@ import { createClient } from '@supabase/supabase-js'
 // PUT    /api/admin/clients        -> maj is_active (body: { user_id, is_active })
 
 export default async function handler(req, res) {
-  const supabaseFromCookies = createPagesServerClient({ req, res })
-  const { data: { user } } = await supabaseFromCookies.auth.getUser()
+  // 1) Try to authenticate via Bearer token header (SPA calling with Authorization)
+  let user = null
+  const authHeader = req.headers.authorization || ''
+  if (authHeader.startsWith('Bearer ')) {
+    const accessToken = authHeader.split(' ')[1]
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const authKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!supabaseUrl || !authKey) {
+      return res.status(500).json({ error: 'Configuration Supabase manquante (URL ou clé). Vérifiez vos variables d\'environnement.' })
+    }
+    const supabaseForAuth = createClient(supabaseUrl, authKey)
+    const { data, error } = await supabaseForAuth.auth.getUser(accessToken)
+    if (!error) {
+      user = data?.user || null
+    }
+  }
 
-  // Vérification minimale: exiger un header secret admin ou rôle custom
-  const adminSecret = req.headers['x-admin-secret']
-  const expected = process.env.ADMIN_API_SECRET
-  if (!user || !adminSecret || expected !== adminSecret) {
+  // 2) Fallback to cookie-based session (SSR/Route handlers)
+  if (!user) {
+    const supabaseFromCookies = createPagesServerClient({ req, res })
+    const { data } = await supabaseFromCookies.auth.getUser()
+    user = data?.user || null
+  }
+
+  const isAdmin = user?.app_metadata?.role === 'admin'
+  if (!user || !isAdmin) {
     return res.status(401).json({ error: 'Non autorisé' })
   }
 
+  // Utiliser la clé service role côté serveur pour bypass RLS en toute sécurité
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
   if (req.method === 'GET') {
