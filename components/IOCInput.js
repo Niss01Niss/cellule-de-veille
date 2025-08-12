@@ -163,17 +163,19 @@ const IOCInput = () => {
     try {
       setLoading(true)
       const authHeaders = await getAuthHeaders()
-      const response = await fetch('/api/iocs', { headers: authHeaders })
+      const response = await fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' })
       if (response.ok) {
         const data = await response.json()
-        setIocs(data)
+        setIocs(Array.isArray(data) ? data : [])
       } else {
         const errorData = await response.json().catch(() => ({}))
+        // En cas de 401, ne bloque pas l'UI par un alert bloquant
+        setIocs([])
         throw new Error(errorData.error || `Erreur de chargement: ${response.status}`)
       }
     } catch (error) {
       console.error('Erreur lors du chargement des IOCs:', error)
-      alert(error.message)
+      setErrorMsg(error.message)
     } finally {
       setLoading(false)
     }
@@ -210,7 +212,7 @@ const IOCInput = () => {
       })
       if (response.ok) {
         const newIOC = await response.json()
-        setIocs(prev => [newIOC, ...prev])
+        setIocs(prev => Array.isArray(prev) ? [newIOC, ...prev] : [newIOC])
         setFormData(initialFormData)
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -232,7 +234,7 @@ const IOCInput = () => {
         headers: authHeaders
       })
       if (response.ok) {
-        setIocs(prev => prev.filter(ioc => ioc.id !== id))
+        setIocs(prev => Array.isArray(prev) ? prev.filter(ioc => ioc.id !== id) : [])
       } else {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || `Erreur de suppression: ${response.status}`)
@@ -256,7 +258,7 @@ const IOCInput = () => {
         body: JSON.stringify(updatedIOC)
       })
       if (response.ok) {
-        setIocs(prev => prev.map(ioc => ioc.id === updatedIOC.id ? updatedIOC : ioc))
+        setIocs(prev => Array.isArray(prev) ? prev.map(ioc => ioc.id === updatedIOC.id ? updatedIOC : ioc) : [updatedIOC])
         setEditModal(null)
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -384,12 +386,12 @@ const IOCInput = () => {
         </div>
         
         <div className="p-6">
-          {loading && iocs.length === 0 ? (
+          {loading && (!Array.isArray(iocs) || iocs.length === 0) ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
               <p className="mt-2 text-gray-600">Chargement...</p>
             </div>
-          ) : iocs.length === 0 ? (
+          ) : !Array.isArray(iocs) || iocs.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">Aucun IOC enregistré</p>
             </div>

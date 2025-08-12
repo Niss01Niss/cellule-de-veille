@@ -26,7 +26,7 @@ export default async function handler(req, res) {
           phone: phone || null,
           industry: industry || null,
           subscription_plan: 'basic',
-          is_active: true,
+          is_active: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }

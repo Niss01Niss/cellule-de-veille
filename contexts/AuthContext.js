@@ -107,6 +107,21 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
 
+      // Vérifier l'état d'activation du client
+      if (data?.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('client_profiles')
+          .select('is_active')
+          .eq('user_id', data.user.id)
+          .single()
+
+        if (!profile || profileError || profile.is_active !== true) {
+          // Déconnecter immédiatement si inactif
+          await supabase.auth.signOut()
+          return { data: null, error: new Error("Compte en attente d'activation par l'administrateur.") }
+        }
+      }
+
       return { data, error: null }
     } catch (error) {
       return { data: null, error }

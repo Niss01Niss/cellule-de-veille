@@ -1,22 +1,43 @@
 
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {
-  const supabase = createPagesServerClient({ req, res })
   const { id } = req.query
 
-  // Vérifier l'authentification (cookie ou header Authorization)
-  let { data: { user }, error: authError } = await supabase.auth.getUser()
+  // 1) Essayer via cookie (helpers)
+  const supabaseFromCookies = createPagesServerClient({ req, res })
+  const { data: { user: cookieUser } } = await supabaseFromCookies.auth.getUser()
+
+  let user = cookieUser
+  let accessToken = null
+
+  // 2) Sinon via Authorization: Bearer <token>
   if (!user) {
     const token = req.headers.authorization?.split(' ')[1]
     if (token) {
-      const { data: { user: userFromToken } } = await supabase.auth.getUser(token)
+      accessToken = token
+      const tmp = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      const { data: { user: userFromToken } } = await tmp.auth.getUser(token)
       user = userFromToken
     }
   }
-  if (authError || !user) {
+
+  if (!user) {
     return res.status(401).json({ error: 'Non autorisé' })
   }
+
+  // 3) Client supabase effectif pour les requêtes BDD
+  const supabase = accessToken
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+      )
+    : supabaseFromCookies
 
   if (req.method === 'DELETE') {
     try {

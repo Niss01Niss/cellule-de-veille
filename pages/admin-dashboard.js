@@ -1,76 +1,94 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function AdminDashboard() {
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-  const router = useRouter();
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState(false)
+  const { user } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      router.push('/login');
+    if (!user) {
+      router.push('/login')
     } else {
-      fetchClients();
+      fetchClients()
     }
-  }, [user]);
+  }, [user])
+
+  const adminHeaders = async () => {
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_API_SECRET || ''
+    }
+  }
 
   const fetchClients = async () => {
     try {
-      const { data, error } = await supabase.from('client_profiles').select('*');
-      if (error) throw error;
-      setClients(data);
+      setLoading(true)
+      const headers = await adminHeaders()
+      const res = await fetch('/api/admin/clients', { headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur chargement clients')
+      setClients(data)
     } catch (error) {
-      console.error('Error fetching clients:', error);
+      console.error('Error fetching clients:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const toggleStatus = async (clientId, currentStatus) => {
+  const toggleActive = async (userId, isActive) => {
     try {
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      const { error } = await supabase
-        .from('client_profiles')
-        .update({ status: newStatus })
-        .eq('id', clientId);
-      if (error) throw error;
-      fetchClients();
+      setPending(true)
+      const headers = await adminHeaders()
+      const res = await fetch('/api/admin/clients', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ user_id: userId, is_active: !isActive })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur mise à jour')
+      await fetchClients()
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('Error updating is_active:', error)
+    } finally {
+      setPending(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto py-8">
         <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
         {loading ? (
-          <p>Loading...</p>
+          <p>Chargement...</p>
         ) : (
           <table className="table-auto w-full bg-white shadow-md rounded-lg">
             <thead>
               <tr>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Entreprise</th>
+                <th className="px-4 py-2">Contact</th>
+                <th className="px-4 py-2">Secteur</th>
+                <th className="px-4 py-2">Active</th>
                 <th className="px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {clients.map((client) => (
                 <tr key={client.id}>
-                  <td className="border px-4 py-2">{client.name}</td>
-                  <td className="border px-4 py-2">{client.email}</td>
-                  <td className="border px-4 py-2">{client.status}</td>
+                  <td className="border px-4 py-2">{client.company_name}</td>
+                  <td className="border px-4 py-2">{client.contact_name}</td>
+                  <td className="border px-4 py-2">{client.industry || '-'}</td>
+                  <td className="border px-4 py-2">{client.is_active ? 'Oui' : 'Non'}</td>
                   <td className="border px-4 py-2">
                     <button
-                      className="bg-blue-500 text-white px-4 py-2 rounded"
-                      onClick={() => toggleStatus(client.id, client.status)}
+                      disabled={pending}
+                      className="bg-blue-500 disabled:opacity-50 text-white px-4 py-2 rounded"
+                      onClick={() => toggleActive(client.user_id, client.is_active)}
                     >
-                      {client.status === 'active' ? 'Deactivate' : 'Activate'}
+                      {client.is_active ? 'Désactiver' : 'Activer'}
                     </button>
                   </td>
                 </tr>
@@ -80,5 +98,5 @@ export default function AdminDashboard() {
         )}
       </div>
     </div>
-  );
+  )
 }
