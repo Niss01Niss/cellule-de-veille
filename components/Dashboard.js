@@ -4,6 +4,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts'
 import { Shield, AlertTriangle, TrendingUp, Database, X, ChevronLeft, ChevronRight, Eye, Clock, Zap } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 // --- LOGIQUE DE FILTRAGE IOCs ---
 function extractKeywords(iocsData) {
@@ -76,12 +77,25 @@ const Dashboard = () => {
     setCurrentPage(1)
   }, [dateFilter])
 
+  // Fonction utilitaire pour créer les headers d'authentification
+  const getAuthHeaders = async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    return headers
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
+      const authHeaders = await getAuthHeaders()
       const [alertsRes, iocsRes] = await Promise.all([
         fetch('/api/cyber-alerts'),
-        fetch('/api/iocs')
+        fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' })
       ])
       const alertsData = await alertsRes.json()
       const iocsData = await iocsRes.json()
@@ -224,15 +238,19 @@ const Dashboard = () => {
   // Appliquer le filtre de date aux alertes filtrées par IOCs
   const dateFilteredAlerts = filterAlertsByDate(filteredAlerts, dateFilter)
 
-  // Pagination sur dateFilteredAlerts
-  const totalPages = Math.ceil(dateFilteredAlerts.length / itemsPerPage)
+  // Appliquer le filtre de date à TOUTES les alertes pour le tableau principal
+  const allAlertsFilteredByDate = filterAlertsByDate(alerts, dateFilter);
+
+  // Pagination pour le tableau principal (basée sur toutes les alertes)
+  const totalPages = Math.ceil(allAlertsFilteredByDate.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentAlerts = dateFilteredAlerts.slice(startIndex, endIndex)
+  const currentAlerts = allAlertsFilteredByDate.slice(startIndex, endIndex)
 
-  // Section alertes critiques filtrée
+  // Section des alertes critiques (basée sur TOUTES les alertes de la période sélectionnée)
   const getCriticalAlerts = () => {
-    return dateFilteredAlerts.filter(alert => alert.cvss >= 9).slice(0, 5)
+    // On utilise `allAlertsFilteredByDate` pour montrer les alertes critiques globales, pas seulement celles liées aux IOCs.
+    return allAlertsFilteredByDate.filter(alert => alert.cvss >= 7).slice(0, 5)
   }
 
   // Défilement automatique des alertes critiques
@@ -626,12 +644,19 @@ const Dashboard = () => {
                     </td>
                   </tr>
                 ))}
-                {currentAlerts.length === 0 && (
+                {currentAlerts.length === 0 && allAlertsFilteredByDate.length === 0 && (
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center">
                         <Shield className="h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-500 text-lg">Aucune alerte disponible</p>
+                        {alerts.length > 0 ? (
+                          <>
+                            <p className="text-gray-500 text-lg">Aucune alerte pour la période sélectionnée</p>
+                            <p className="text-gray-400 text-sm mt-1">Essayez de sélectionner "7 derniers jours" ou une période plus large.</p>
+                          </>
+                        ) : (
+                          <p className="text-gray-500 text-lg">Aucune alerte disponible pour le moment</p>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -645,7 +670,7 @@ const Dashboard = () => {
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-700 dark:text-gray-300">
-                  Affichage de {startIndex + 1} à {Math.min(endIndex, dateFilteredAlerts.length)} sur {dateFilteredAlerts.length} résultats
+                  Affichage de {startIndex + 1} à {Math.min(endIndex, allAlertsFilteredByDate.length)} sur {allAlertsFilteredByDate.length} résultats
                 </div>
                 <div className="flex items-center space-x-2">
                   <button

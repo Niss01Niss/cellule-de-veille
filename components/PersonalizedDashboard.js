@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts'
+import { supabase } from '../lib/supabase'
 import { Shield, AlertTriangle, TrendingUp, Database, Target, CheckCircle, XCircle, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const PersonalizedDashboard = () => {
@@ -37,12 +38,25 @@ const PersonalizedDashboard = () => {
     setCurrentPage(1)
   }, [dateFilter])
 
+  // Fonction utilitaire pour créer les headers d'authentification
+  const getAuthHeaders = async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    return headers
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
+      const authHeaders = await getAuthHeaders()
       
       const [iocsResponse, alertsResponse] = await Promise.all([
-        fetch('/api/iocs'),
+        fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' }),
         fetch('/api/cyber-alerts')
       ])
 

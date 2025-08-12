@@ -1,9 +1,18 @@
-import { supabase } from '../../lib/supabase'
+
+import { createPagesServerClient } from '@supabase/auth-helpers-nextjs'
 
 export default async function handler(req, res) {
-  // Vérifier l'authentification
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
+
+  const supabase = createPagesServerClient({ req, res })
+  let { data: { user }, error: authError } = await supabase.auth.getUser()
+  // Si la session cookie échoue, tenter via le header Authorization (jeton JWT)
+  if (!user) {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (token) {
+      const { data: { user: userFromToken } } = await supabase.auth.getUser(token)
+      user = userFromToken
+    }
+  }
   if (authError || !user) {
     return res.status(401).json({ error: 'Non autorisé' })
   }
@@ -47,7 +56,7 @@ export default async function handler(req, res) {
 
       res.status(201).json(data[0])
     } catch (error) {
-      console.error('Erreur lors de la création de l\'IOC:', error)
+  console.error("Erreur lors de la création de l'IOC:", error)
       res.status(500).json({ error: error.message })
     }
   } else {

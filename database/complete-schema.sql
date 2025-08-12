@@ -46,17 +46,11 @@ CREATE INDEX IF NOT EXISTS idx_iocs_server ON iocs(server);
 -- =====================================================
 CREATE TABLE IF NOT EXISTS cyber_alerts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    title TEXT NOT NULL,
     summary TEXT,
     description TEXT,
     cvss_score DECIMAL(3,1),
-    severity VARCHAR(20),
     published TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    source TEXT,
-    cve_id TEXT,
-    affected_products TEXT[],
-    remediation TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

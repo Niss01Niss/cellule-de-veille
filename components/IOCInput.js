@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Save, HelpCircle, Edit } from 'lucide-react'
 import IOCHelpModal from './IOCHelpModal'
+import { supabase } from '../lib/supabase'
 
 const IOCEditModal = ({ ioc, onClose, onSave }) => {
   const [formData, setFormData] = useState({ ...ioc })
@@ -123,13 +124,15 @@ const IOCInput = () => {
   const [loading, setLoading] = useState(false)
   const [showHelpModal, setShowHelpModal] = useState(false)
   const [hasSeenHelp, setHasSeenHelp] = useState(false)
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     ip: '',
     server: '',
     os: '',
     security_solutions: ''
-  })
+  }
+  const [formData, setFormData] = useState(initialFormData)
   const [editModal, setEditModal] = useState(null)
+  const [errorMsg, setErrorMsg] = useState("")
 
   // Charger les IOCs existants au montage du composant
   useEffect(() => {
@@ -144,16 +147,33 @@ const IOCInput = () => {
     }
   }, [])
 
+  const getAuthHeaders = async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session || !session.access_token) {
+      throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.')
+    }
+    headers['Authorization'] = `Bearer ${session.access_token}`
+    return headers
+  }
+
   const fetchIOCs = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/iocs')
+      const authHeaders = await getAuthHeaders()
+      const response = await fetch('/api/iocs', { headers: authHeaders })
       if (response.ok) {
         const data = await response.json()
         setIocs(data)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erreur de chargement: ${response.status}`)
       }
     } catch (error) {
       console.error('Erreur lors du chargement des IOCs:', error)
+      alert(error.message)
     } finally {
       setLoading(false)
     }
@@ -162,6 +182,7 @@ const IOCInput = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
+      ...initialFormData,
       ...prev,
       [name]: value
     }))
@@ -169,42 +190,35 @@ const IOCInput = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+    setErrorMsg("")
     // Vérifier qu'au moins un champ est rempli
     const hasData = Object.values(formData).some(value => value.trim() !== '')
     if (!hasData) {
-      alert('Veuillez remplir au moins un champ')
+      setErrorMsg('Veuillez remplir au moins un champ')
       return
     }
-
+    setLoading(true)
     try {
-      setLoading(true)
+      const authHeaders = await getAuthHeaders()
       const response = await fetch('/api/iocs', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           ...formData,
           created_at: new Date().toISOString()
         })
       })
-
       if (response.ok) {
         const newIOC = await response.json()
         setIocs(prev => [newIOC, ...prev])
-        setFormData({
-          ip: '',
-          server: '',
-          os: '',
-          security_solutions: ''
-        })
+        setFormData(initialFormData)
       } else {
-        throw new Error('Erreur lors de la sauvegarde')
+        const errorData = await response.json().catch(() => ({}))
+        setErrorMsg(errorData.error || `Erreur de sauvegarde: ${response.status}`)
       }
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error)
-      alert('Erreur lors de la sauvegarde des données')
+      console.error('Erreur lors de la sauvegarde:', error.message)
+      setErrorMsg(error.message)
     } finally {
       setLoading(false)
     }
@@ -212,18 +226,20 @@ const IOCInput = () => {
 
   const handleDelete = async (id) => {
     try {
+      const authHeaders = await getAuthHeaders()
       const response = await fetch(`/api/iocs/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: authHeaders
       })
-
       if (response.ok) {
         setIocs(prev => prev.filter(ioc => ioc.id !== id))
       } else {
-        throw new Error('Erreur lors de la suppression')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erreur de suppression: ${response.status}`)
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error)
-      alert('Erreur lors de la suppression')
+      console.error('Erreur lors de la suppression:', error.message)
+      alert(`Erreur lors de la suppression: ${error.message}`)
     }
   }
 
@@ -233,25 +249,27 @@ const IOCInput = () => {
 
   const handleSaveEdit = async (updatedIOC) => {
     try {
+      const authHeaders = await getAuthHeaders()
       const response = await fetch(`/api/iocs/${updatedIOC.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders,
         body: JSON.stringify(updatedIOC)
       })
-
       if (response.ok) {
         setIocs(prev => prev.map(ioc => ioc.id === updatedIOC.id ? updatedIOC : ioc))
         setEditModal(null)
       } else {
-        throw new Error('Erreur lors de la modification')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erreur de modification: ${response.status}`)
       }
     } catch (error) {
-      console.error('Erreur lors de la modification:', error)
-      alert('Erreur lors de la modification')
+      console.error('Erreur lors de la modification:', error.message)
+      alert(`Erreur lors de la modification: ${error.message}`)
     }
   }
+
+  // Sécurisation de l'accès aux champs du formulaire dans le rendu
+  const safeFormData = { ...initialFormData, ...formData }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -274,7 +292,11 @@ const IOCInput = () => {
       {/* Formulaire */}
       <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6 mb-8">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Ajouter un nouvel IOC</h2>
-        
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">
+            <strong>Erreur :</strong> {errorMsg}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -285,7 +307,7 @@ const IOCInput = () => {
                 type="text"
                 id="ip"
                 name="ip"
-                value={formData.ip}
+                value={safeFormData.ip}
                 onChange={handleInputChange}
                 placeholder="192.168.1.1 (Web Server - Apache 2.4.41)"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
@@ -300,7 +322,7 @@ const IOCInput = () => {
                 type="text"
                 id="server"
                 name="server"
-                value={formData.server}
+                value={safeFormData.server}
                 onChange={handleInputChange}
                 placeholder="srv01.example.com (Web Server)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -315,7 +337,7 @@ const IOCInput = () => {
                 type="text"
                 id="os"
                 name="os"
-                value={formData.os}
+                value={safeFormData.os}
                 onChange={handleInputChange}
                 placeholder="Windows 10 Pro 22H2, Ubuntu 20.04 LTS"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -330,7 +352,7 @@ const IOCInput = () => {
                 type="text"
                 id="security_solutions"
                 name="security_solutions"
-                value={formData.security_solutions}
+                value={safeFormData.security_solutions}
                 onChange={handleInputChange}
                 placeholder="Norton Antivirus 2024, Cisco Firewall ASA 9.18"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

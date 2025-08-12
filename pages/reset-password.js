@@ -3,7 +3,6 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
-import AuthLayout from '../components/AuthLayout'
 import { Shield, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function ResetPassword() {
@@ -40,24 +39,24 @@ export default function ResetPassword() {
 
     try {
       const { data, error } = await updatePassword(password)
-      
+      console.log('Update Password Response:', { data, error });
       if (error) {
-        setError(error.message)
+        setError(error.message);
       } else {
         setSuccess('Mot de passe mis à jour avec succès ! Redirection...')
         setTimeout(() => {
           router.push('/login')
         }, 2000)
       }
+      setLoading(false);
     } catch (error) {
       setError('Une erreur est survenue lors de la mise à jour du mot de passe')
-    } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <AuthLayout>
+    <div className={`min-h-screen ${isDark ? 'bg-dark-900' : 'bg-gray-50'} transition-colors duration-300`}>
       <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
         {/* Header */}
@@ -208,6 +207,8 @@ export default function ResetPassword() {
           </p>
         </div>
       </div>
-    </AuthLayout>
-  )
-} 
+    </div>
+
+  </div>
+);
+}
