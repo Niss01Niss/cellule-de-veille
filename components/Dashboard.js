@@ -403,7 +403,7 @@ const Dashboard = () => {
             <thead className="bg-slate-50/80 dark:bg-slate-700/80">
                 <tr>
                 <th className="px-8 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    ID
+                    Source
                   </th>
                 <th className="px-8 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Résumé
@@ -426,8 +426,20 @@ const Dashboard = () => {
                 {currentAlerts.map((alert) => (
                 <tr key={alert.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-all duration-200">
                   <td className="px-8 py-6 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white">
-                      #{alert.id}
-                    </td>
+                    {alert.source ? (
+                      <a 
+                        href={alert.source} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline hover:no-underline transition-colors"
+                        title={alert.source}
+                      >
+                        🔗 Voir la source
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 dark:text-slate-500">Aucune source</span>
+                    )}
+                  </td>
                   <td className="px-8 py-6 text-sm text-slate-900 dark:text-white max-w-xs truncate">
                       {alert.summary}
                     </td>
@@ -532,18 +544,32 @@ const Dashboard = () => {
                   </div>
                 </div>
                 
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Date de Publication</h3>
-                  <p className="text-slate-700 dark:text-slate-300">
-                    {new Date(selectedAlert.published).toLocaleDateString('fr-FR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
+                                 <div>
+                   <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Date de Publication</h3>
+                   <p className="text-slate-700 dark:text-slate-300">
+                     {new Date(selectedAlert.published).toLocaleDateString('fr-FR', {
+                       year: 'numeric',
+                       month: 'long',
+                       day: 'numeric',
+                       hour: '2-digit',
+                       minute: '2-digit'
+                     })}
+                   </p>
+                 </div>
+                 
+                 {selectedAlert.source && (
+                   <div>
+                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Source</h3>
+                     <a 
+                       href={selectedAlert.source} 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline hover:no-underline transition-colors"
+                     >
+                       {selectedAlert.source}
+                     </a>
+                   </div>
+                 )}
               </div>
             </div>
           </div>

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS cyber_alerts (
     summary TEXT,
     description TEXT,
     cvss_score DECIMAL(3,1),
+    source TEXT,
     published TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

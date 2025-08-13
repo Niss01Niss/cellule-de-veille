@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../contexts/AuthContext'
 import IOCInput from '../components/IOCInput'
 import IOCHelpModal from '../components/IOCHelpModal'
+import OptimizedLoader from '../components/OptimizedLoader'
 
 export default function IOCsPage() {
   const { user, loading } = useAuth()
@@ -16,14 +17,7 @@ export default function IOCsPage() {
   }, [user, loading, router])
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Chargement...</p>
-        </div>
-      </div>
-    )
+    return <OptimizedLoader message="Chargement des IOCs..." size="large" />
   }
 
   if (!user) {

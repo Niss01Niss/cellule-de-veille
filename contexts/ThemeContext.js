@@ -14,16 +14,29 @@ export const ThemeProvider = ({ children }) => {
   const [isDark, setIsDark] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  // Charger le thème depuis localStorage au montage
+  // Charger le thème depuis localStorage au montage (optimisé)
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) {
-      setIsDark(savedTheme === 'dark')
-    } else {
-      // Détecter la préférence système
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setIsDark(prefersDark)
+    // Utiliser une fonction pour éviter les appels répétés
+    const loadTheme = () => {
+      try {
+        const savedTheme = localStorage.getItem('theme')
+        if (savedTheme) {
+          setIsDark(savedTheme === 'dark')
+        } else {
+          // Détecter la préférence système seulement si pas de thème sauvegardé
+          if (typeof window !== 'undefined') {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+            setIsDark(prefersDark)
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du thème:', error)
+        // Fallback au thème clair
+        setIsDark(false)
+      }
     }
+
+    loadTheme()
   }, [])
 
   // Appliquer le thème au document

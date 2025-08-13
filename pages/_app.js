@@ -2,6 +2,7 @@ import '../styles/globals.css'
 import Layout from '../components/Layout'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { AuthProvider } from '../contexts/AuthContext'
+import NavigationOptimizer from '../components/NavigationOptimizer'
 import { useRouter } from 'next/router'
 
 function MyApp({ Component, pageProps }) {
@@ -14,13 +15,15 @@ function MyApp({ Component, pageProps }) {
   return (
     <AuthProvider>
       <ThemeProvider>
-        {isAuthPage ? (
-          <Component {...pageProps} />
-        ) : (
-          <Layout>
+        <NavigationOptimizer>
+          {isAuthPage ? (
             <Component {...pageProps} />
-          </Layout>
-        )}
+          ) : (
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          )}
+        </NavigationOptimizer>
       </ThemeProvider>
     </AuthProvider>
   )

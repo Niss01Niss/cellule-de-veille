@@ -13,32 +13,64 @@ export const AuthProvider = ({ children }) => {
   const [clientProfile, setClientProfile] = useState(null)
 
   useEffect(() => {
-    // Vérifier la session actuelle
+    let mounted = true
+    let sessionCache = null
+
+    // Vérifier la session actuelle avec cache
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchClientProfile(session.user.id)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!mounted) return
+        
+        sessionCache = session
+        setUser(session?.user ?? null)
+        
+        if (session?.user) {
+          await fetchClientProfile(session.user.id)
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération de la session:', error)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     getSession()
 
-    // Écouter les changements d'authentification
+    // Écouter les changements d'authentification avec debounce
+    let authChangeTimeout
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchClientProfile(session.user.id)
-        } else {
-          setClientProfile(null)
+        // Éviter les appels redondants
+        if (sessionCache?.user?.id === session?.user?.id && event !== 'SIGNED_OUT') {
+          return
         }
-        setLoading(false)
+        
+        clearTimeout(authChangeTimeout)
+        authChangeTimeout = setTimeout(async () => {
+          if (!mounted) return
+          
+          sessionCache = session
+          setUser(session?.user ?? null)
+          
+          if (session?.user) {
+            await fetchClientProfile(session.user.id)
+          } else {
+            setClientProfile(null)
+          }
+          setLoading(false)
+        }, 100) // Debounce de 100ms
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      clearTimeout(authChangeTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const fetchClientProfile = async (userId) => {
