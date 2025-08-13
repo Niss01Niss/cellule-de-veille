@@ -131,10 +131,25 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      console.log('🔐 Début de la déconnexion dans AuthContext...')
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      console.log('✅ Supabase déconnexion réussie')
+      
+      // Réinitialiser les états locaux après la déconnexion
+      setUser(null)
+      setClientProfile(null)
+      console.log('✅ États locaux réinitialisés')
+      
+      // Rediriger vers la page de connexion
+      if (typeof window !== 'undefined') {
+        console.log('🔄 Redirection vers /login...')
+        window.location.href = '/login'
+      }
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error)
+      console.error('❌ Erreur lors de la déconnexion:', error)
+      throw error
     }
   }
 

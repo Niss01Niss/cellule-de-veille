@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Shield, BarChart3, Search, X, Target, Menu, Home, Settings, HelpCircle, Sun, Moon, Users } from 'lucide-react'
+import { Shield, BarChart3, Search, X, Target, Menu, Home, Settings, HelpCircle, Sun, Moon, Users, TrendingUp, AlertTriangle, Database } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useTheme } from '../contexts/ThemeContext'
@@ -18,38 +18,51 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
       icon: BarChart3,
       href: '/',
       active: router.pathname === '/',
-      description: 'Vue d\'ensemble des alertes'
+      description: 'Vue d\'ensemble des alertes',
+      badge: null
     },
     {
       name: 'Dashboard Personnalisé',
       icon: Target,
       href: '/personalized',
       active: router.pathname === '/personalized',
-      description: 'Alertes basées sur vos IOCs'
+      description: 'Alertes basées sur vos IOCs',
+      badge: 'Nouveau'
     },
     {
       name: 'IOCs',
       icon: Search,
       href: '/iocs',
       active: router.pathname === '/iocs',
-      description: 'Gestion des indicateurs'
+      description: 'Gestion des indicateurs',
+      badge: null
     }
   ]
 
   const adminMenuItems = [
     {
+      name: 'Dashboard Principal',
+      icon: BarChart3,
+      href: '/',
+      active: router.pathname === '/',
+      description: 'Alertes et statistiques',
+      badge: null
+    },
+    {
       name: 'Admin Dashboard',
       icon: Home,
       href: { pathname: '/admin-dashboard', query: { view: 'overview' } },
       active: router.pathname === '/admin-dashboard' && (!router.query.view || router.query.view === 'overview'),
-      description: 'Vue administrateur'
+      description: 'Vue administrateur',
+      badge: null
     },
     {
       name: 'Gestion Clients',
       icon: Users,
       href: { pathname: '/admin-dashboard', query: { view: 'clients' } },
       active: router.pathname === '/admin-dashboard' && router.query.view === 'clients',
-      description: 'Activation, profils'
+      description: 'Activation, profils',
+      badge: null
     }
   ]
 
@@ -57,76 +70,87 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
 
   return (
     <>
-      {/* Header avec logo */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-dark-800 dark:to-dark-700 transition-colors duration-300">
+      {/* Header avec logo amélioré */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 transition-all duration-500">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <Shield className="h-10 w-10 text-blue-600 dark:text-blue-400 drop-shadow-sm" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white dark:border-dark-800 animate-pulse"></div>
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-glow">
+              <Shield className="h-6 w-6 text-white" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse-gentle"></div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-800 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
               Cyber Alerts
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Dashboard Sécurité</p>
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+              {isAdmin ? 'Administration' : 'Dashboard Sécurité'}
+            </p>
           </div>
         </div>
         {isMobile && onClose && (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/50 dark:bg-dark-700/50 hover:bg-white/80 dark:hover:bg-dark-600/80 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="p-2 rounded-xl bg-white/80 dark:bg-slate-700/80 hover:bg-white dark:hover:bg-slate-600 transition-all duration-200 shadow-soft hover:shadow-md backdrop-blur-sm"
           >
-            <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <X className="h-5 w-5 text-slate-600 dark:text-slate-300" />
           </button>
         )}
       </div>
 
-      {/* Navigation */}
+      {/* Navigation avec design amélioré */}
       <nav className="p-4 space-y-2">
-        <div className="mb-4">
-          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 px-3">
+        <div className="mb-6">
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-3">
             Navigation
           </h3>
         </div>
         
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon
             return (
               <li key={item.name}>
                 <Link href={item.href}>
                   <div className={`
-                    group relative flex items-center space-x-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200
+                    group relative flex items-center space-x-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300
                     ${item.active 
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25' 
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-dark-700 dark:hover:to-dark-600 hover:text-blue-600'
+                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg shadow-blue-500/25 transform scale-105' 
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-700 dark:hover:to-slate-600 hover:text-blue-600 hover:transform hover:scale-102'
                     }
                   `}>
-                    {/* Indicateur actif */}
+                    {/* Indicateur actif avec animation */}
                     {item.active && (
-                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full"></div>
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-10 bg-white rounded-r-full shadow-glow"></div>
                     )}
                     
                     <div className={`
-                      p-2 rounded-lg transition-all duration-200
+                      p-2.5 rounded-xl transition-all duration-300
                       ${item.active 
-                        ? 'bg-white/20' 
-                        : 'bg-gray-100 dark:bg-dark-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900'
+                        ? 'bg-white/20 shadow-inner' 
+                        : 'bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30'
                       }
                     `}>
-                      <Icon className={`h-5 w-5 transition-all duration-200 ${
-                        item.active ? 'text-white' : 'text-gray-600 dark:text-gray-400 group-hover:text-blue-600'
+                      <Icon className={`h-5 w-5 transition-all duration-300 ${
+                        item.active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-blue-600'
                       }`} />
                     </div>
                     
-                    <div className="flex-1">
-                      <span className={`font-medium transition-all duration-200 ${
-                        item.active ? 'text-white' : 'text-gray-700 dark:text-gray-300 group-hover:text-blue-600'
-                      }`}>
-                        {item.name}
-                      </span>
-                      <p className={`text-xs transition-all duration-200 ${
-                        item.active ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500 group-hover:text-blue-500'
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-semibold transition-all duration-300 ${
+                          item.active ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-blue-600'
+                        }`}>
+                          {item.name}
+                        </span>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs font-medium rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-xs transition-all duration-300 ${
+                        item.active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-500'
                       }`}>
                         {item.description}
                       </p>
@@ -134,7 +158,7 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
 
                     {/* Effet de brillance au hover */}
                     <div className={`
-                      absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200
+                      absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300
                       ${item.active ? 'bg-gradient-to-r from-white/10 to-transparent' : 'bg-gradient-to-r from-blue-500/5 to-transparent'}
                       group-hover:opacity-100
                     `}></div>
@@ -145,65 +169,65 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
           })}
         </ul>
 
-        {/* Section d'aide */}
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-dark-700">
-          <div className="px-3 mb-3">
-            <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              Aide
+        {/* Section d'aide avec design amélioré */}
+        <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
+          <div className="px-3 mb-4">
+            <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Support & Configuration
             </h3>
           </div>
           
-          <div className="space-y-1">
-            <div className="group px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-dark-700 dark:hover:to-dark-600">
+          <div className="space-y-2">
+            <div className="group px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-700 dark:hover:to-slate-600 hover:transform hover:scale-102">
               <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-all duration-200">
-                  <HelpCircle className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-600" />
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-all duration-300">
+                  <HelpCircle className="h-5 w-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600" />
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 transition-all duration-200">
+                  <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-all duration-300">
                     Guide d'utilisation
                   </span>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-all duration-200">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-all duration-300">
                     Tutoriels et documentation
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="group px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-dark-700 dark:hover:to-dark-600">
+            <div className="group px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-700 dark:hover:to-slate-600 hover:transform hover:scale-102">
               <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-all duration-200">
-                  <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-600" />
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-all duration-300">
+                  <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600" />
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 transition-all duration-200">
+                  <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-all duration-300">
                     Paramètres
                   </span>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-all duration-200">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-all duration-300">
                     Configuration du système
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Bouton de thème */}
+            {/* Bouton de thème amélioré */}
             <button
               onClick={toggleTheme}
-              className="w-full group px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-dark-700 dark:hover:to-dark-600"
+              className="w-full group px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-700 dark:hover:to-slate-600 hover:transform hover:scale-102"
             >
               <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-all duration-200">
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-all duration-300">
                   {isDark ? (
-                    <Sun className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-600" />
+                    <Sun className="h-5 w-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600" />
                   ) : (
-                    <Moon className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-600" />
+                    <Moon className="h-5 w-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600" />
                   )}
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 transition-all duration-200">
+                  <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-all duration-300">
                     {isDark ? 'Mode Clair' : 'Mode Sombre'}
                   </span>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-all duration-200">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 group-hover:text-blue-500 transition-all duration-300">
                     Changer le thème
                   </p>
                 </div>
@@ -219,24 +243,24 @@ const SidebarContent = ({ onClose, isMobile = false }) => {
 const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
-      {/* Overlay pour mobile avec animation */}
+      {/* Overlay pour mobile avec animation améliorée */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
           onClick={onClose}
         />
       )}
       
-      {/* Sidebar desktop */}
-      <div className="hidden lg:block fixed top-0 left-0 h-full w-72 bg-white dark:bg-dark-800 shadow-2xl z-50 border-r border-gray-200/50 dark:border-dark-700/50 backdrop-blur-sm transition-colors duration-300">
+      {/* Sidebar desktop avec design amélioré */}
+      <div className="hidden lg:block fixed top-0 left-0 h-full w-72 bg-white/95 dark:bg-slate-800/95 shadow-2xl z-50 border-r border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl transition-all duration-500">
         <SidebarContent />
       </div>
 
-      {/* Sidebar mobile avec animation */}
+      {/* Sidebar mobile avec animation améliorée */}
       <div className={`
-        fixed top-0 left-0 h-full bg-white dark:bg-dark-800 shadow-2xl z-50 transform transition-all duration-300 ease-out
+        fixed top-0 left-0 h-full bg-white/95 dark:bg-slate-800/95 shadow-2xl z-50 transform transition-all duration-500 ease-out backdrop-blur-xl
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:hidden
-        w-80 border-r border-gray-200/50 dark:border-dark-700/50 backdrop-blur-sm
+        w-80 border-r border-slate-200/50 dark:border-slate-700/50
       `}>
         <SidebarContent onClose={onClose} isMobile={true} />
       </div>

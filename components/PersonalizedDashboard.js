@@ -81,10 +81,11 @@ const PersonalizedDashboard = () => {
       
       const authHeaders = await getAuthHeaders()
       
-      // Construire l'URL avec le paramètre d'industrie
-      const alertsUrl = userIndustry 
-        ? `/api/cyber-alerts?industry=${encodeURIComponent(userIndustry)}`
-        : '/api/cyber-alerts'
+      // Récupérer TOUTES les alertes pour le filtrage côté client
+      // Le filtrage par IOCs et industrie se fait dans analyzeRelevantAlerts
+      const alertsUrl = '/api/cyber-alerts'
+      
+      console.log('🔍 Personalized Dashboard - Fetching data...')
       
       const [iocsResponse, alertsResponse] = await Promise.all([
         fetch('/api/iocs', { headers: authHeaders, credentials: 'same-origin' }),
@@ -94,6 +95,12 @@ const PersonalizedDashboard = () => {
       const iocsData = await iocsResponse.json()
       const alertsData = await alertsResponse.json()
 
+      console.log('📊 Data fetched:', { 
+        iocsCount: iocsData?.length || 0, 
+        alertsCount: alertsData?.length || 0,
+        userIndustry 
+      })
+
       // Trier les alertes par date de publication décroissante (plus récentes en premier)
       const sortedAlerts = (alertsData || []).sort((a, b) => 
         new Date(b.published) - new Date(a.published)
@@ -102,8 +109,12 @@ const PersonalizedDashboard = () => {
       setIocs(iocsData || [])
       setAlerts(sortedAlerts)
 
+      // Analyser les alertes pertinentes avec filtrage IOCs + Industrie
       const relevant = analyzeRelevantAlerts(iocsData || [], sortedAlerts)
       setPersonalizedAlerts(relevant)
+      
+      console.log('🎯 Relevant alerts found:', relevant.length)
+      
       calculateStats(iocsData || [], sortedAlerts, relevant)
       
     } catch (error) {
@@ -126,40 +137,62 @@ const PersonalizedDashboard = () => {
     const relevantAlerts = []
     const keywords = extractKeywords(iocsData)
 
+    // Mappage des industries vers leurs mots-clés pertinents
+    const industryKeywords = {
+      'healthcare': ['healthcare', 'medical', 'hospital', 'pharmaceutical', 'patient', 'clinical', 'HIPAA', 'FDA', 'santé', 'médical', 'hôpital', 'patient', 'médecin', 'soins'],
+      'finance': ['finance', 'banking', 'financial', 'payment', 'credit', 'investment', 'PCI-DSS', 'SOX', 'banque', 'paiement', 'crédit', 'investissement', 'bancaire'],
+      'technology': ['technology', 'software', 'IT', 'cloud', 'cybersecurity', 'digital', 'AI', 'machine learning', 'technologie', 'logiciel', 'informatique', 'cybersécurité'],
+      'retail': ['retail', 'e-commerce', 'POS', 'payment', 'inventory', 'customer', 'PCI-DSS', 'commerce', 'e-commerce', 'point de vente', 'client', 'magasin'],
+      'manufacturing': ['manufacturing', 'industrial', 'SCADA', 'OT', 'production', 'factory', 'IoT', 'manufacturing', 'industriel', 'production', 'usine'],
+      'government': ['government', 'public sector', 'federal', 'state', 'municipal', 'defense', 'classified', 'gouvernement', 'secteur public', 'fédéral', 'défense'],
+      'education': ['education', 'university', 'school', 'student', 'academic', 'research', 'FERPA', 'éducation', 'université', 'école', 'étudiant', 'académique'],
+      'energy': ['energy', 'utilities', 'power', 'grid', 'SCADA', 'nuclear', 'renewable', 'énergie', 'électricité', 'réseau', 'nucléaire', 'renouvelable'],
+      'transportation': ['transportation', 'logistics', 'aviation', 'railway', 'maritime', 'fleet', 'GPS', 'transport', 'logistique', 'aviation', 'ferroviaire', 'maritime'],
+      'telecommunications': ['telecom', 'network', 'ISP', 'mobile', '5G', 'fiber', 'routing', 'télécommunications', 'réseau', 'mobile', 'fibre', 'routage']
+    }
+
     alertsData.forEach(alert => {
       const { score, matchedKeywords } = calculateRelevanceScore(alert, keywords, iocsData)
       
       // Bonus pour la correspondance d'industrie
       let industryBonus = 0
-      if (userIndustry && alert.description && alert.summary) {
-        const industryLower = userIndustry.toLowerCase()
-        const alertText = `${alert.description} ${alert.summary}`.toLowerCase()
+      let industryMatched = false
+      
+      if (userIndustry && alert.summary) {
+        const alertText = alert.summary.toLowerCase()
+        const industryKey = userIndustry.toLowerCase()
         
-        // Vérifier si l'alerte contient des mots-clés liés à l'industrie
-        if (alertText.includes(industryLower) || 
-            alertText.includes('healthcare') || 
-            alertText.includes('finance') || 
-            alertText.includes('technology') ||
-            alertText.includes('retail') ||
-            alertText.includes('manufacturing') ||
-            alertText.includes('government') ||
-            alertText.includes('education') ||
-            alertText.includes('energy') ||
-            alertText.includes('transportation') ||
-            alertText.includes('telecommunications')) {
-          industryBonus = 3 // Bonus de 3 points pour la pertinence d'industrie
+        // Vérifier si l'industrie de l'utilisateur a des mots-clés spécifiques
+        if (industryKeywords[industryKey]) {
+          const keywords = industryKeywords[industryKey]
+          const matchedIndustryKeywords = keywords.filter(keyword => 
+            alertText.includes(keyword.toLowerCase())
+          )
+          
+          if (matchedIndustryKeywords.length > 0) {
+            industryBonus = 5 // Bonus de 5 points pour la pertinence d'industrie
+            industryMatched = true
+            console.log('🏭 Industry match:', { industry: userIndustry, keywords: matchedIndustryKeywords })
+          }
+        }
+        
+        // Vérification directe du nom de l'industrie
+        if (!industryMatched && alertText.includes(industryKey)) {
+          industryBonus = 3
+          industryMatched = true
         }
       }
       
       const finalScore = score + industryBonus
       
-      // Seuil strict : au moins une correspondance réelle avec un score minimum
-      if (finalScore >= 8 && matchedKeywords.length > 0) {
+      // Seuil plus flexible : au moins une correspondance avec un score minimum
+      if (finalScore >= 5 && (matchedKeywords.length > 0 || industryMatched)) {
         relevantAlerts.push({
           ...alert,
           relevanceScore: finalScore,
           matchedKeywords: matchedKeywords,
-          industryRelevant: industryBonus > 0
+          industryRelevant: industryMatched,
+          industryBonus: industryBonus
         })
       }
     })
@@ -466,8 +499,26 @@ const PersonalizedDashboard = () => {
             <Target className="h-8 w-8 animate-bounce" />
             <h1 className="text-3xl font-bold">Dashboard Personnalisé</h1>
           </div>
-          <p className="text-gray-600 mt-4 text-lg">
-            Vulnérabilités pertinentes basées sur vos {stats.totalIOCs} IOCs
+          
+          {/* Indicateurs de filtrage */}
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+              🎯 Filtrage par IOCs ({iocs.length} IOCs configurés)
+            </span>
+            
+            {userIndustry && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">
+                🏭 Filtrage par industrie: {userIndustry}
+              </span>
+            )}
+            
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200">
+              📊 {personalizedAlerts.length} alertes pertinentes trouvées
+            </span>
+          </div>
+          
+          <p className="mt-4 text-gray-600 dark:text-gray-400 text-lg">
+            Alertes filtrées selon vos IOCs et votre secteur d'activité
           </p>
         </div>
 
