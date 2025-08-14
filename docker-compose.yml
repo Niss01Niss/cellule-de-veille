@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  cellule-de-veille:
+    build: .
+    network_mode: "host"
+    env_file:
+      - .env.local
+    restart: unless-stopped
